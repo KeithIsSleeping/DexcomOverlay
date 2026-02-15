@@ -24,6 +24,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore DexcomOverlay/DexcomOverlay.csproj
 
+      - name: Run tests
+        run: dotnet test DexcomOverlay.Tests/DexcomOverlay.Tests.csproj --configuration Release --verbosity normal
+
       - name: Publish
         run: >
           dotnet publish DexcomOverlay/DexcomOverlay.csproj

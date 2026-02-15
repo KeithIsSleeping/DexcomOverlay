@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -97,9 +98,11 @@ public partial class MainWindow : Window
         _client = new DexcomShareClient(_settings.Username, _settings.Password, _settings.Region);
         _cts = new CancellationTokenSource();
 
+        // Enforce minimum refresh interval regardless of config
+        var intervalSeconds = Math.Max(_settings.RefreshIntervalSeconds, 30);
         _timer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(_settings.RefreshIntervalSeconds)
+            Interval = TimeSpan.FromSeconds(intervalSeconds)
         };
         _timer.Tick += async (_, _) => await FetchGlucoseAsync();
         _timer.Start();
@@ -294,7 +297,10 @@ public partial class MainWindow : Window
                 .AddText(body)
                 .Show();
         }
-        catch { /* Notification failed — non-critical */ }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[DexcomOverlay] Toast notification failed: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     // ── Drag ───────────────────────────────────────────────────
@@ -339,6 +345,28 @@ public partial class MainWindow : Window
         _settings.ShowMmol = !_settings.ShowMmol;
         SettingsService.Save(_settings);
         _ = FetchGlucoseAsync();
+    }
+
+    private void Logout_Click(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            "This will clear your saved Dexcom credentials and stop fetching data.\n\nContinue?",
+            "Logout", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        // Stop fetching and dispose client
+        _timer?.Stop();
+        _cts?.Cancel();
+        _client?.Dispose();
+        _client = null;
+
+        // Clear credentials from settings and save
+        _settings.Username = "";
+        _settings.Password = "";
+        SettingsService.Save(_settings);
+
+        ShowNoCredentials();
     }
 
     private void Close_Click(object sender, MouseButtonEventArgs e)

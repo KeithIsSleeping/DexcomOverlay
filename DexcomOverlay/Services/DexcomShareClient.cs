@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -53,8 +54,13 @@ public sealed class DexcomShareClient : IDisposable
     {
         _username = username;
         _password = password;
-        _baseUrl = BaseUrls.GetValueOrDefault(region, BaseUrls["us"]);
-        _applicationId = ApplicationIds.GetValueOrDefault(region, ApplicationIds["us"]);
+
+        // Validate region — reject unknown values rather than silently defaulting
+        if (!BaseUrls.ContainsKey(region))
+            throw new ArgumentException($"Unknown region '{region}'. Supported: us, ous, jp", nameof(region));
+
+        _baseUrl = BaseUrls[region];
+        _applicationId = ApplicationIds[region];
 
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Accept.Clear();
@@ -191,7 +197,7 @@ public sealed class DexcomShareClient : IDisposable
         return readings;
     }
 
-    private static GlucoseReading? ParseReading(JsonElement json)
+    internal static GlucoseReading? ParseReading(JsonElement json)
     {
         try
         {
@@ -222,8 +228,9 @@ public sealed class DexcomShareClient : IDisposable
                 Timestamp = timestamp,
             };
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[DexcomOverlay] Failed to parse glucose reading: {ex.GetType().Name}: {ex.Message}");
             return null;
         }
     }
@@ -246,8 +253,9 @@ public sealed class DexcomShareClient : IDisposable
         }
         catch (DexcomSessionException) { throw; }
         catch (DexcomApiException) { throw; }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[DexcomOverlay] Unexpected API error (HTTP {(int)response.StatusCode}): {ex.GetType().Name}: {ex.Message}");
             response.EnsureSuccessStatusCode(); // fallback
         }
     }

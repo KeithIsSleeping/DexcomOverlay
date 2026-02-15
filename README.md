@@ -2,7 +2,7 @@
 
 A lightweight, always-on-top Windows desktop overlay that displays your real-time Dexcom CGM glucose reading. Built with C# / WPF and the Dexcom Share API.
 
-![Overlay Screenshot - In Range](docs/screenshots/overlay-in-range.png)
+![Overlay Screenshot - In Range](docs/screenshots/overlay-in-range.PNG)
 
 ## Features
 
@@ -13,7 +13,7 @@ A lightweight, always-on-top Windows desktop overlay that displays your real-tim
 - **Draggable** — place it anywhere on screen; position is remembered between sessions
 - **Minimal footprint** — sits unobtrusively on your desktop
 
-![Overlay Screenshot - High](docs/screenshots/overlay-high.png)
+![Overlay Screenshot - High](docs/screenshots/overlay-high.PNG)
 
 ### Interactive Graph View
 - **Full glucose timeline graph** with color-coded data points and connecting lines
@@ -23,7 +23,7 @@ A lightweight, always-on-top Windows desktop overlay that displays your real-tim
 - **Hover tooltips** with exact value, time, and trend for each data point
 - **Resizable window** — graph redraws dynamically
 
-![Graph Screenshot](docs/screenshots/graph-view.png)
+![Graph Screenshot](docs/screenshots/graph-view.PNG)
 
 ### Predictive Alerts
 - **Windows toast notifications** for predicted lows and highs
@@ -38,7 +38,7 @@ A lightweight, always-on-top Windows desktop overlay that displays your real-tim
 - Toggle mmol/L or mg/dL
 - Enable/disable predictive alerts
 
-![Settings Screenshot](docs/screenshots/settings.png)
+![Settings Screenshot](docs/screenshots/settings.PNG)
 
 ## Download
 
@@ -74,6 +74,7 @@ Your glucose reading will appear within a few seconds.
 | Minimize to taskbar | Click the **─** icon or right-click → Minimize |
 | Refresh now | Right-click → Refresh Now |
 | Switch mg/dL ↔ mmol/L | Right-click → Toggle mmol/L |
+| Logout / clear credentials | Right-click → Logout / Clear Credentials |
 | Close | Click **✕** or right-click → Exit |
 
 ## Configuration
@@ -129,7 +130,8 @@ This app uses the **Dexcom Share API** (the same API the Dexcom Follow app uses)
 ## Privacy & Security
 
 - Your credentials are stored **locally** in `%AppData%\DexcomOverlay\config.json`
-- Credentials are stored in **plain text** — protect your config file accordingly
+- Username and password are **encrypted at rest** using [Windows DPAPI](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection) (tied to your Windows user account)
+- If you have an existing plain-text config, it will be **automatically encrypted** on the next save
 - No data is sent anywhere except to Dexcom's servers
 - No analytics, telemetry, or third-party services
 
