@@ -1,0 +1,45 @@
+# .NET
+bin/
+obj/
+publish/
+*.user
+*.userosscache
+*.userprefs
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+# IDE
+.vs/
+.vscode/
+*.sln.docstates
+launchSettings.json
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Config (contains credentials)
+config.json
+
+# Python leftovers
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
