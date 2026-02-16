@@ -21,6 +21,8 @@ public class AppSettingsTests
         Assert.False(settings.ShowMmol);
         Assert.True(settings.EnablePredictiveAlerts);
         Assert.Equal(15, settings.AlertCooldownMinutes);
+        Assert.True(settings.EnableNoDataAlert);
+        Assert.Equal(30, settings.NoDataAlertMinutes);
     }
 
     [Fact]
@@ -41,5 +43,25 @@ public class AppSettingsTests
         Assert.True(t.UrgentLow < t.Low);
         Assert.True(t.Low < t.High);
         Assert.True(t.High < t.UrgentHigh);
+    }
+
+    [Fact]
+    public void Suppression_HasEmptyDefaults()
+    {
+        var s = new AlertSuppressionSettings();
+        Assert.NotNull(s.Global);
+        Assert.Null(s.Global.SuppressUntil);
+        Assert.Null(s.Global.Schedule);
+        Assert.Empty(s.PerType);
+    }
+
+    [Fact]
+    public void ScheduleSuppression_HasSensibleDefaults()
+    {
+        var sched = new ScheduleSuppression();
+        Assert.False(sched.Enabled);
+        Assert.Equal("22:00", sched.StartTime);
+        Assert.Equal("07:00", sched.EndTime);
+        Assert.Empty(sched.Days);
     }
 }

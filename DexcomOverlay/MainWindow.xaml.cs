@@ -16,18 +16,25 @@ public partial class MainWindow : Window
     private AppSettings _settings;
     private DexcomShareClient? _client;
     private DispatcherTimer? _timer;
+    private DispatcherTimer? _suppressionIndicatorTimer;
     private CancellationTokenSource? _cts;
 
     private GlucoseReading? _lastReading;
+    private DateTime _lastDataReceivedUtc = DateTime.UtcNow;
+    private bool _firstFetchAttempted;
 
     // Notification cooldown
     private DateTime _lastLowAlertTime = DateTime.MinValue;
     private DateTime _lastHighAlertTime = DateTime.MinValue;
+    private DateTime _lastNoDataAlertTime = DateTime.MinValue;
+
+    private AlertSuppressionService _suppression;
 
     public MainWindow()
     {
         InitializeComponent();
         _settings = SettingsService.Load();
+        _suppression = new AlertSuppressionService(_settings);
         ApplySettings();
         Loaded += OnLoaded;
     }
@@ -53,6 +60,7 @@ public partial class MainWindow : Window
         Focus();
 
         StartFetching();
+        StartSuppressionIndicatorTimer();
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -60,6 +68,7 @@ public partial class MainWindow : Window
         SavePosition();
         _cts?.Cancel();
         _timer?.Stop();
+        _suppressionIndicatorTimer?.Stop();
         _client?.Dispose();
         base.OnClosing(e);
     }
@@ -115,6 +124,8 @@ public partial class MainWindow : Window
     {
         if (_client is null) return;
 
+        _firstFetchAttempted = true;
+
         try
         {
             StatusDot.Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0xCC, 0x00)); // Yellow = fetching
@@ -130,11 +141,15 @@ public partial class MainWindow : Window
         {
             ShowError(ex.Message.Length > 30 ? ex.Message[..30] + "…" : ex.Message);
         }
+
+        // Check no-data alert after every fetch cycle (only once fetching has started)
+        CheckNoDataAlert();
     }
 
     private void UpdateDisplay(GlucoseReading reading)
     {
         _lastReading = reading;
+        _lastDataReceivedUtc = DateTime.UtcNow;
         var color = GetGlucoseColor(reading.Value);
 
         if (_settings.ShowMmol)
@@ -262,13 +277,20 @@ public partial class MainWindow : Window
 
         if ((isUrgentLow || isPredictedLow) && now - _lastLowAlertTime > cooldown)
         {
-            _lastLowAlertTime = now;
-            var unit = _settings.ShowMmol ? $"{reading.MmolL:F1} mmol/L" : $"{value} mg/dL";
-            SendAlert(
-                isUrgentLow ? "\u26a0 URGENT LOW" : "\u26a0 Predicted Low",
-                isUrgentLow
-                    ? $"Glucose is {unit} — take action immediately"
-                    : $"Glucose is {unit} and {reading.TrendDescription}");
+            var alertType = isUrgentLow ? AlertType.UrgentLow
+                          : isPredictedLow ? AlertType.PredictedLow
+                          : AlertType.Low;
+
+            if (!_suppression.IsAlertSuppressed(alertType))
+            {
+                _lastLowAlertTime = now;
+                var unit = _settings.ShowMmol ? $"{reading.MmolL:F1} mmol/L" : $"{value} mg/dL";
+                SendAlert(
+                    isUrgentLow ? "\u26a0 URGENT LOW" : "\u26a0 Predicted Low",
+                    isUrgentLow
+                        ? $"Glucose is {unit} — take action immediately"
+                        : $"Glucose is {unit} and {reading.TrendDescription}");
+            }
         }
 
         // Rising trends: DoubleUp(1), SingleUp(2), FortyFiveUp(3)
@@ -278,13 +300,45 @@ public partial class MainWindow : Window
 
         if ((isUrgentHigh || isPredictedHigh) && now - _lastHighAlertTime > cooldown)
         {
-            _lastHighAlertTime = now;
-            var unit = _settings.ShowMmol ? $"{reading.MmolL:F1} mmol/L" : $"{value} mg/dL";
-            SendAlert(
-                isUrgentHigh ? "\u26a0 URGENT HIGH" : "\u26a0 Predicted High",
-                isUrgentHigh
-                    ? $"Glucose is {unit} — take action"
-                    : $"Glucose is {unit} and {reading.TrendDescription}");
+            var alertType = isUrgentHigh ? AlertType.UrgentHigh
+                          : isPredictedHigh ? AlertType.PredictedHigh
+                          : AlertType.High;
+
+            if (!_suppression.IsAlertSuppressed(alertType))
+            {
+                _lastHighAlertTime = now;
+                var unit = _settings.ShowMmol ? $"{reading.MmolL:F1} mmol/L" : $"{value} mg/dL";
+                SendAlert(
+                    isUrgentHigh ? "\u26a0 URGENT HIGH" : "\u26a0 Predicted High",
+                    isUrgentHigh
+                        ? $"Glucose is {unit} — take action"
+                        : $"Glucose is {unit} and {reading.TrendDescription}");
+            }
+        }
+
+        // Check no-data alert
+        CheckNoDataAlert();
+    }
+
+    private void CheckNoDataAlert()
+    {
+        if (!_settings.EnableNoDataAlert) return;
+        if (!_firstFetchAttempted) return; // Don't alert before we've even tried to fetch
+
+        var now = DateTime.UtcNow;
+        var elapsed = now - _lastDataReceivedUtc;
+        var threshold = TimeSpan.FromMinutes(_settings.NoDataAlertMinutes);
+        var cooldown = TimeSpan.FromMinutes(_settings.AlertCooldownMinutes);
+
+        if (elapsed >= threshold && now - _lastNoDataAlertTime > cooldown)
+        {
+            if (!_suppression.IsAlertSuppressed(AlertType.NoData))
+            {
+                _lastNoDataAlertTime = DateTime.Now;
+                SendAlert(
+                    "\u26a0 No Data",
+                    $"No glucose data received for {elapsed.TotalMinutes:F0} minutes");
+            }
         }
     }
 
@@ -301,6 +355,52 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"[DexcomOverlay] Toast notification failed: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    // ── Suppression Indicator ────────────────────────────────
+
+    private void StartSuppressionIndicatorTimer()
+    {
+        _suppressionIndicatorTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(10)
+        };
+        _suppressionIndicatorTimer.Tick += (_, _) => UpdateSuppressionIndicator();
+        _suppressionIndicatorTimer.Start();
+        UpdateSuppressionIndicator();
+    }
+
+    private void UpdateSuppressionIndicator()
+    {
+        SuppressionIndicator.Visibility = _suppression.IsAnySuppressed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void Suppression_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        OpenSuppressionWindow();
+    }
+
+    private void Suppression_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSuppressionWindow();
+    }
+
+    private SuppressionWindow? _suppressionWindow;
+
+    private void OpenSuppressionWindow()
+    {
+        if (_suppressionWindow is { IsLoaded: true })
+        {
+            _suppressionWindow.Activate();
+            return;
+        }
+
+        _suppressionWindow = new SuppressionWindow(_settings, _suppression);
+        _suppressionWindow.Closed += (_, _) => UpdateSuppressionIndicator();
+        _suppressionWindow.Show();
     }
 
     // ── Drag ───────────────────────────────────────────────────
@@ -330,8 +430,10 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             _settings = SettingsService.Load();
+            _suppression = new AlertSuppressionService(_settings);
             ApplySettings();
             StartFetching();
+            UpdateSuppressionIndicator();
         }
     }
 

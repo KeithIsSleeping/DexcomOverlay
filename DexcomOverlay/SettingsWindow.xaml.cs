@@ -42,6 +42,8 @@ public partial class SettingsWindow : Window
         UrgHighBox.Text = _settings.Thresholds.UrgentHigh.ToString();
 
         AlertsCheckBox.IsChecked = _settings.EnablePredictiveAlerts;
+        NoDataAlertCheckBox.IsChecked = _settings.EnableNoDataAlert;
+        NoDataMinutesBox.Text = _settings.NoDataAlertMinutes.ToString();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -65,6 +67,10 @@ public partial class SettingsWindow : Window
         if (int.TryParse(UrgHighBox.Text, out var uh)) _settings.Thresholds.UrgentHigh = uh;
 
         _settings.EnablePredictiveAlerts = AlertsCheckBox.IsChecked == true;
+        _settings.EnableNoDataAlert = NoDataAlertCheckBox.IsChecked == true;
+
+        if (int.TryParse(NoDataMinutesBox.Text, out var noDataMin))
+            _settings.NoDataAlertMinutes = Math.Clamp(noDataMin, 5, 120);
 
         SettingsService.Save(_settings);
         DialogResult = true;

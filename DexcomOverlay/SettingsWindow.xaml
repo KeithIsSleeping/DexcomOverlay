@@ -93,6 +93,20 @@
                   Margin="0,14,0,0"
                   IsChecked="True" />
 
+        <CheckBox x:Name="NoDataAlertCheckBox"
+                  Content="Enable no-data alert"
+                  Foreground="#CCCCCC"
+                  FontFamily="Segoe UI" FontSize="12"
+                  Margin="0,6,0,0"
+                  IsChecked="True" />
+
+        <StackPanel Orientation="Horizontal" Margin="20,4,0,0">
+            <TextBlock Text="No data threshold (minutes):"
+                       Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" />
+            <TextBox x:Name="NoDataMinutesBox" Width="50" Margin="6,0,0,0"
+                     FontFamily="Segoe UI" FontSize="12" />
+        </StackPanel>
+
         <!-- Save button -->
         <Button Content="Save &amp; Reconnect"
                 Click="Save_Click"

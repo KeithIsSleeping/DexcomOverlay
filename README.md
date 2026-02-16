@@ -30,6 +30,14 @@ A lightweight, always-on-top Windows desktop overlay that displays your real-tim
 - Alerts when glucose is trending toward your thresholds
 - Urgent alerts for values already outside safe range
 - **Configurable cooldown** to prevent notification spam (default: 15 min)
+- **No-data alert** — notifies you when no glucose data has been received for a configurable period (default: 30 min)
+
+### Alert Suppression
+- **Suppress alerts globally** or on a **per-alert-type basis** (Urgent Low, Low, Predicted Low, High, Predicted High, Urgent High, No Data)
+- **Timer-based suppression**: suppress for 10 min, 30 min, 1 hour, 2 hours, or indefinitely
+- **Schedule-based suppression**: suppress during specific hours on specific days (e.g., overnight 22:00–07:00)
+- **Visual indicator**: a yellow ⚠ icon appears on the overlay when any alerts are suppressed — click it to open the suppression configuration window
+- Access via the ⚠ icon on the overlay or right-click → **Alert Suppression...**
 
 ### Settings
 - Dexcom Share credentials (username, password, region)
@@ -37,6 +45,8 @@ A lightweight, always-on-top Windows desktop overlay that displays your real-tim
 - Glucose thresholds (urgent low, low, high, urgent high)
 - Toggle mmol/L or mg/dL
 - Enable/disable predictive alerts
+- Enable/disable no-data alert with configurable threshold (minutes)
+- Alert suppression configuration (timer and schedule-based, global or per-type)
 
 ![Settings Screenshot](docs/screenshots/settings.PNG)
 
@@ -71,6 +81,7 @@ Your glucose reading will appear within a few seconds.
 | Move the overlay | Click and drag |
 | Open settings | Right-click → Settings |
 | Open graph | Click the **▤** icon (top-right) or right-click → Graph |
+| Alert suppression | Click the **⚠** icon (when visible) or right-click → Alert Suppression... |
 | Minimize to taskbar | Click the **─** icon or right-click → Minimize |
 | Refresh now | Right-click → Refresh Now |
 | Switch mg/dL ↔ mmol/L | Right-click → Toggle mmol/L |

@@ -19,7 +19,11 @@ public class AppSettings
     public bool EnablePredictiveAlerts { get; set; } = true;
     public int AlertCooldownMinutes { get; set; } = 15;
 
+    public bool EnableNoDataAlert { get; set; } = true;
+    public int NoDataAlertMinutes { get; set; } = 30;
+
     public GlucoseThresholds Thresholds { get; set; } = new();
+    public AlertSuppressionSettings Suppression { get; set; } = new();
 }
 
 public class GlucoseThresholds
@@ -28,4 +32,60 @@ public class GlucoseThresholds
     public int Low { get; set; } = 70;
     public int High { get; set; } = 180;
     public int UrgentHigh { get; set; } = 250;
+}
+
+/// <summary>
+/// Defines the types of alerts the overlay can fire.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum AlertType
+{
+    UrgentLow,
+    Low,
+    PredictedLow,
+    High,
+    PredictedHigh,
+    UrgentHigh,
+    NoData,
+}
+
+/// <summary>
+/// Root settings for alert suppression — both global and per-alert-type.
+/// </summary>
+public class AlertSuppressionSettings
+{
+    /// <summary>Global suppression (applies to all alert types).</summary>
+    public SuppressionRule Global { get; set; } = new();
+
+    /// <summary>Per-alert-type suppression overrides. Key is the AlertType name.</summary>
+    public Dictionary<string, SuppressionRule> PerType { get; set; } = new();
+}
+
+/// <summary>
+/// A suppression rule with optional timer and/or schedule.
+/// </summary>
+public class SuppressionRule
+{
+    /// <summary>If set, alerts are suppressed until this UTC time. DateTime.MaxValue = indefinite.</summary>
+    public DateTime? SuppressUntil { get; set; }
+
+    /// <summary>Schedule-based suppression.</summary>
+    public ScheduleSuppression? Schedule { get; set; }
+}
+
+/// <summary>
+/// Suppress alerts during specific hours on specific days.
+/// </summary>
+public class ScheduleSuppression
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>Start time of day (local) as "HH:mm".</summary>
+    public string StartTime { get; set; } = "22:00";
+
+    /// <summary>End time of day (local) as "HH:mm".</summary>
+    public string EndTime { get; set; } = "07:00";
+
+    /// <summary>Days of week (0=Sunday..6=Saturday). Empty = every day.</summary>
+    public List<int> Days { get; set; } = new();
 }

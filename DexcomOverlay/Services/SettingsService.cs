@@ -63,6 +63,9 @@ public static class SettingsService
     {
         Directory.CreateDirectory(ConfigDir);
 
+        // Back up existing config before overwriting — prevents permanent data loss
+        BackupConfig();
+
         // Sanitize before saving
         Sanitize(settings);
 
@@ -81,7 +84,10 @@ public static class SettingsService
             ShowMmol = settings.ShowMmol,
             EnablePredictiveAlerts = settings.EnablePredictiveAlerts,
             AlertCooldownMinutes = settings.AlertCooldownMinutes,
+            EnableNoDataAlert = settings.EnableNoDataAlert,
+            NoDataAlertMinutes = settings.NoDataAlertMinutes,
             Thresholds = settings.Thresholds,
+            Suppression = settings.Suppression,
         };
 
         var json = JsonSerializer.Serialize(toSave, JsonOptions);
@@ -115,6 +121,14 @@ public static class SettingsService
         // Alert cooldown: 5–60 min
         s.AlertCooldownMinutes = Math.Clamp(s.AlertCooldownMinutes, 5, 60);
 
+        // No-data alert: 5–120 min
+        s.NoDataAlertMinutes = Math.Clamp(s.NoDataAlertMinutes, 5, 120);
+
+        // Ensure Suppression hierarchy is never null (guards against JSON deserialization gaps)
+        s.Suppression ??= new AlertSuppressionSettings();
+        s.Suppression.Global ??= new SuppressionRule();
+        s.Suppression.PerType ??= new Dictionary<string, SuppressionRule>();
+
         // Threshold sanity: must be in physiologically plausible order
         // and within 20–500 mg/dL range
         var t = s.Thresholds;
@@ -122,6 +136,27 @@ public static class SettingsService
         t.Low = Math.Clamp(t.Low, t.UrgentLow + 1, 150);
         t.High = Math.Clamp(t.High, t.Low + 1, 400);
         t.UrgentHigh = Math.Clamp(t.UrgentHigh, t.High + 1, 500);
+    }
+
+    // ── Config backup ───────────────────────────────────────────
+
+    private static readonly string BackupPath = Path.Combine(ConfigDir, "config.json.bak");
+
+    /// <summary>
+    /// Copies the current config to a .bak file before overwriting.
+    /// Only keeps one backup to avoid clutter.
+    /// </summary>
+    private static void BackupConfig()
+    {
+        try
+        {
+            if (File.Exists(ConfigPath))
+                File.Copy(ConfigPath, BackupPath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[DexcomOverlay] Config backup failed: {ex.Message}");
+        }
     }
 
     // ── File ACL restriction ───────────────────────────────────
@@ -204,6 +239,15 @@ public static class SettingsService
             return cipherText;
         }
 
+        // DPAPI ciphertext is typically much longer than plain text.
+        // A short Base64 string (< 32 bytes decoded) that happens to be valid Base64
+        // is almost certainly legacy plain text (e.g. a username like "bradleyklein").
+        if (cipherBytes.Length < 32)
+        {
+            Debug.WriteLine("[DexcomOverlay] Short Base64 value detected — treating as legacy plain text.");
+            return cipherText;
+        }
+
         // Try with entropy first (current format)
         try
         {
@@ -226,11 +270,12 @@ public static class SettingsService
             Debug.WriteLine("[DexcomOverlay] Migrated credential from no-entropy DPAPI; will re-encrypt on next save.");
             return result;
         }
-        catch (CryptographicException ex)
+        catch (CryptographicException)
         {
-            // Couldn't decrypt with either method — data may be tampered or from another user
-            Debug.WriteLine($"[DexcomOverlay] Failed to decrypt credential — possible tampering or wrong user: {ex.Message}");
-            return "";
+            // Couldn't decrypt — likely legacy plain text that happened to be valid Base64.
+            // Return the original string rather than losing the credential.
+            Debug.WriteLine("[DexcomOverlay] DPAPI decryption failed — returning value as plain text to avoid credential loss.");
+            return cipherText;
         }
     }
 }

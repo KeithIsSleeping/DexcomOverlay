@@ -17,6 +17,7 @@
     <Window.ContextMenu>
         <ContextMenu>
             <MenuItem Header="Settings..." Click="Settings_Click" />
+            <MenuItem Header="Alert Suppression..." Click="Suppression_Click" />
             <MenuItem Header="Refresh Now" Click="Refresh_Click" />
             <MenuItem Header="Graph" Click="Graph_Click" />
             <Separator />
@@ -59,6 +60,18 @@
                        Cursor="Hand"
                        ToolTip="Open graph view"
                        PreviewMouseLeftButtonDown="Graph_MouseDown" />
+            <!-- Suppression indicator -->
+            <TextBlock x:Name="SuppressionIndicator"
+                       Text="⚠"
+                       Foreground="#FFCC00"
+                       FontSize="11"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Top"
+                       Margin="0,-2,34,0"
+                       Cursor="Hand"
+                       ToolTip="Alerts are suppressed — click to configure"
+                       Visibility="Collapsed"
+                       PreviewMouseLeftButtonDown="Suppression_MouseDown" />
             <!-- Status dot in top-left corner -->
             <Ellipse x:Name="StatusDot"
                      Width="6" Height="6"
