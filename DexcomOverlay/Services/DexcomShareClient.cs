@@ -72,7 +72,7 @@ public sealed class DexcomShareClient : IDisposable
     public async Task<GlucoseReading?> GetCurrentReadingAsync(CancellationToken ct = default)
     {
         var readings = await GetGlucoseReadingsAsync(minutes: 10, maxCount: 1, ct).ConfigureAwait(false);
-        return readings.FirstOrDefault();
+        return readings.LastOrDefault();
     }
 
     /// <summary>Get glucose readings within the specified time window. Uses cache when possible.</summary>
